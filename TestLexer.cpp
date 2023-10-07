@@ -8,8 +8,8 @@
 #include <sstream>
 
 BOOST_AUTO_TEST_CASE(test_1) {
-    std::stringstream ss("let a i32 = 500");
-    Lexer<std::stringstream> lexer(std::move(ss));
+    std::istringstream ss("let a i32 = 500");
+    Lexer lexer(std::make_unique<std::istringstream>(std::move(ss)));
 
     BOOST_CHECK(lexer.getNextToken() == Token(Keyword::Let));
     BOOST_CHECK(lexer.getNextToken() == Token(Identifier("a")));
@@ -20,8 +20,8 @@ BOOST_AUTO_TEST_CASE(test_1) {
 }
 
 BOOST_AUTO_TEST_CASE(test_2) {
-    std::stringstream ss("if (a == 500.0) {}");
-    Lexer<std::stringstream> lexer(std::move(ss));
+    std::istringstream ss("if (a == 500.0) {}");
+    Lexer lexer(std::move(ss));
 
     BOOST_CHECK(lexer.getNextToken() == Token(Keyword::If));
     BOOST_CHECK(lexer.getNextToken() == Token(Punctuation::OpenParen));

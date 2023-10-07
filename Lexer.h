@@ -13,36 +13,34 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <istream>
+#include <memory>
 #include "Token.h"
 #include "boost/type_index.hpp"
 
-class InternalData {
-    const static std::unordered_map<std::string, Keyword> keywords;
-    const static std::unordered_map<std::string, Operator> operators;
-    const static std::unordered_map<std::string, Punctuation> punctuations;
 
-    template<typename T>
-    friend
-    class Lexer;
-};
+template<typename T>
+concept InputStream = std::is_base_of_v<std::istream, T>;
 
-template<typename SourceType>
+template<typename T>
+concept InputStreamPtr = InputStream<typename T::element_type>;
+
 class Lexer {
-    SourceType source;
+    std::unique_ptr<std::istream> source_ptr;
+    std::istream &source;
 
 public:
     Lexer() = delete;
 
-    template<typename T>
-    explicit Lexer(T &&source) : source(std::forward<T>(source)) {
+    template<InputStreamPtr T>
+    explicit Lexer(T &&source) : source_ptr(std::forward<T>(source)), source(*this->source_ptr) {
         if (!this->source) {
-            if (std::is_same<T, SourceType>())
-                throw std::invalid_argument(std::string("Expected an open ") +
-                                            boost::typeindex::type_id_with_cvr<SourceType>().pretty_name());
-            else
-                throw std::runtime_error("Couldn't open source file");
+            throw std::invalid_argument("Expected a good stream");
         }
     }
+
+    template<InputStream T>
+    explicit Lexer(T &&source) : Lexer(std::make_unique<T>(std::forward<T>(source))) {}
 
     [[nodiscard]] Token getNextToken();
 
@@ -54,6 +52,12 @@ private:
     Token parsePunct();
 
     std::pair<unsigned int, unsigned int> getErrorPosition();
+
+    struct InternalData {
+        const static std::unordered_map<std::string, Keyword> keywords;
+        const static std::unordered_map<std::string, Operator> operators;
+        const static std::unordered_map<std::string, Punctuation> punctuations;
+    };
 };
 
 class SyntaxErrorException : public std::runtime_error {
@@ -71,115 +75,5 @@ public:
 
     [[nodiscard]] unsigned int getPosition() const { return position; }
 };
-
-template<typename SourceType>
-Token Lexer<SourceType>::getNextToken() {
-    while (std::isspace(source.peek())) {
-        source.ignore();
-    }
-
-    auto c = source.peek();
-
-    if (c == EOF) {
-        return EndToken();
-    }
-    try {
-        if (std::isdigit(c)) {
-            return parseDigit();
-        } else if (std::isalpha(c)) {
-            return parseAlpha();
-        } else if (std::ispunct(c)) {
-            return parsePunct();
-        }
-    } catch (SyntaxErrorException const &e) {
-        auto [line, position] = getErrorPosition();
-        throw SyntaxErrorException(e.what(), line, position);
-    }
-
-    throw std::runtime_error("Unknown character with value " + std::to_string(c));
-}
-
-template<typename SourceType>
-Token Lexer<SourceType>::parseDigit() {
-    std::string lexeme;
-    bool is_float = false;
-
-    do {
-        if (source.peek() == '.') {
-            if (is_float) {
-                // Undo changes in stream position to deliver an error message pointing to the start of the number
-                source.seekg(-static_cast<SourceType::pos_type>(lexeme.length()), std::ios::cur);
-                throw SyntaxErrorException("Invalid floating point literal");
-            }
-            is_float = true;
-        }
-        lexeme.push_back(static_cast<std::string::value_type>(source.get()));
-    } while (std::isdigit(source.peek()) || source.peek() == '.');
-
-    if (is_float) { return FloatLiteral(std::stold(lexeme)); }
-    return IntegerLiteral(std::stoull(lexeme));
-}
-
-template<typename SourceType>
-Token Lexer<SourceType>::parseAlpha() {
-    std::string lexeme;
-
-    do {
-        lexeme.push_back(static_cast<std::string::value_type>(source.get()));
-    } while (std::isalnum(source.peek()));
-
-    const auto it = InternalData::keywords.find(lexeme);
-
-    if (it != std::cend(InternalData::keywords)) {
-        return it->second;
-    }
-
-    return Identifier(std::move(lexeme));
-}
-
-template<typename SourceType>
-Token Lexer<SourceType>::parsePunct() {
-    std::string lexeme;
-
-    do {
-        lexeme.push_back(static_cast<std::string::value_type>(source.get()));
-    } while (std::ispunct(source.peek()));
-
-    do {
-        const auto oper_iter = InternalData::operators.find(lexeme);
-        if (oper_iter != std::cend(InternalData::operators)) {
-            return oper_iter->second;
-        }
-        const auto punc_iter = InternalData::punctuations.find(lexeme);
-        if (punc_iter != std::cend(InternalData::punctuations)) {
-            return punc_iter->second;
-        }
-        lexeme.pop_back();
-        source.unget();
-    } while (!lexeme.empty());
-
-    throw SyntaxErrorException("Unexpected operator");
-}
-
-template<typename SourceType>
-std::pair<unsigned int, unsigned int> Lexer<SourceType>::getErrorPosition() {
-    unsigned int line = 1, position = 1;
-
-    auto error_pos = source.tellg();
-    source.seekg(0, std::ios::beg);
-
-    while (source.tellg() < error_pos) {
-        switch (source.get()) {
-            case '\n':
-                ++line;
-                position = 1;
-                break;
-            default:
-                ++position;
-                break;
-        }
-    }
-    return std::make_pair(line, position);
-}
 
 #endif //COMPILER_LEXER_H
