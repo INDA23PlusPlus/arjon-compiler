@@ -22,7 +22,8 @@ class InternalData {
     const static std::unordered_map<std::string, Punctuation> punctuations;
 
     template<typename T>
-    friend class Lexer;
+    friend
+    class Lexer;
 };
 
 template<typename SourceType>

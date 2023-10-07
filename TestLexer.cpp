@@ -2,6 +2,7 @@
 // Created by Arvid Jonasson on 2023-10-07.
 //
 #define BOOST_TEST_MODULE LexerTest
+
 #include <boost/test/included/unit_test.hpp>
 #include "Lexer.h"
 #include <sstream>
