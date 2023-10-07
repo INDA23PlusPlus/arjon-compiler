@@ -16,6 +16,15 @@
 #include "Token.h"
 #include "boost/type_index.hpp"
 
+class InternalData {
+    const static std::unordered_map<std::string, Keyword> keywords;
+    const static std::unordered_map<std::string, Operator> operators;
+    const static std::unordered_map<std::string, Punctuation> punctuations;
+
+    template<typename T>
+    friend class Lexer;
+};
+
 template<typename SourceType>
 class Lexer {
     SourceType source;
@@ -89,53 +98,6 @@ Token Lexer<SourceType>::getNextToken() {
     throw std::runtime_error("Unknown character with value " + std::to_string(c));
 }
 
-static std::unordered_map<std::string, Keyword> keywords{
-        {"return", Keyword::Return},
-        {"fn",     Keyword::Fn},
-        {"while",  Keyword::While},
-        {"if",     Keyword::If},
-        {"let",    Keyword::Let},
-        {"main",   Keyword::Main},
-        {"i32",    Keyword::i32},
-        {"i64",    Keyword::i64},
-        {"u32",    Keyword::u32},
-        {"u64",    Keyword::u64},
-        {"f32",    Keyword::f32},
-        {"f64",    Keyword::f64},
-};
-
-static std::unordered_map<std::string, Operator> operators{
-        // Arithmetic operators
-        {"+",  Operator::Add},
-        {"-",  Operator::Subtract},
-        {"*",  Operator::Multiply},
-        {"/",  Operator::Divide},
-        {"%",  Operator::Modulus},
-
-        // Assignment operator
-        {"=",  Operator::Assignment},
-
-        // Relational operators
-        {"==", Operator::Equal},
-        {"!=", Operator::NotEqual},
-        {"<",  Operator::LessThan},
-        {">",  Operator::GreaterThan},
-        {"<=", Operator::LessThanOrEq},
-        {">=", Operator::GreaterThanOrEq},
-
-        // Logical operators
-        {"&&", Operator::LogicalAnd},
-        {"||", Operator::LogicalOr},
-        {"!",  Operator::LogicalNot},
-};
-
-static std::unordered_map<std::string, Punctuation> punctuations{
-        {"(", Punctuation::OpenParen},
-        {")", Punctuation::CloseParen},
-        {"{", Punctuation::OpenBrace},
-        {"}", Punctuation::CloseBrace},
-};
-
 template<typename SourceType>
 Token Lexer<SourceType>::parseDigit() {
     std::string lexeme;
@@ -165,9 +127,9 @@ Token Lexer<SourceType>::parseAlpha() {
         lexeme.push_back(static_cast<std::string::value_type>(source.get()));
     } while (std::isalnum(source.peek()));
 
-    auto it = keywords.find(lexeme);
+    const auto it = InternalData::keywords.find(lexeme);
 
-    if (it != keywords.end()) {
+    if (it != std::cend(InternalData::keywords)) {
         return it->second;
     }
 
@@ -183,12 +145,12 @@ Token Lexer<SourceType>::parsePunct() {
     } while (std::ispunct(source.peek()));
 
     do {
-        const auto oper_iter = operators.find(lexeme);
-        if (oper_iter != std::cend(operators)) {
+        const auto oper_iter = InternalData::operators.find(lexeme);
+        if (oper_iter != std::cend(InternalData::operators)) {
             return oper_iter->second;
         }
-        const auto punc_iter = punctuations.find(lexeme);
-        if (punc_iter != std::cend(punctuations)) {
+        const auto punc_iter = InternalData::punctuations.find(lexeme);
+        if (punc_iter != std::cend(InternalData::punctuations)) {
             return punc_iter->second;
         }
         lexeme.pop_back();

@@ -9,13 +9,14 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 enable_testing()
 
-add_executable(lexer_test TestLexer.cpp)
+add_executable(lexer_test Lexer.cpp TestLexer.cpp)
 
 add_executable(compiler main.cpp
         Lexer.h
         Token.h
         Parser.cpp
-        Parser.h)
+        Parser.h
+        Lexer.cpp)
 
 
 add_test(NAME LexerTest COMMAND lexer_test)
