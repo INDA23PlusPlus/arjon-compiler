@@ -133,7 +133,7 @@ static std::unordered_map<std::string, Punctuation> punctuations{
         {"(", Punctuation::OpenParen},
         {")", Punctuation::CloseParen},
         {"{", Punctuation::OpenBrace},
-        {"{", Punctuation::CloseBrace},
+        {"}", Punctuation::CloseBrace},
 };
 
 template<typename SourceType>
