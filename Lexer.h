@@ -107,7 +107,7 @@ Token Lexer<SourceType>::parseDigit() {
     do {
         if (source.peek() == '.') {
             if (is_float) {
-                // Undo changes in stream position to deliver an error message pointing to the start of the syntax error
+                // Undo changes in stream position to deliver an error message pointing to the start of the number
                 source.seekg(-static_cast<SourceType::pos_type>(lexeme.length()), std::ios::cur);
                 throw SyntaxErrorException("Invalid floating point literal");
             }
