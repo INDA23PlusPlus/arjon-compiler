@@ -7,9 +7,10 @@
 
 #include "Lexer.h"
 #include <utility>
+#include <fstream>
 
 class Parser {
-    Lexer lexer;
+    Lexer<std::ifstream> lexer;
 
 public:
     Parser() = delete;

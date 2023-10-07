@@ -1,9 +1,13 @@
 #include <iostream>
 #include "Parser.h"
-int main()
-{
-    std::ifstream source;
-    Parser parser(std::move(source));
 
-    return 0;
+
+
+#include <iostream>
+#include <vector>
+#include <fstream>
+
+
+int main() {
+    std::ifstream stream;
 }

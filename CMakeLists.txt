@@ -3,9 +3,19 @@ project(compiler)
 
 set(CMAKE_CXX_STANDARD 23)
 
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+
+include_directories(${Boost_INCLUDE_DIRS})
+
+enable_testing()
+
+add_executable(lexer_test TestLexer.cpp)
+
 add_executable(compiler main.cpp
-        Lexer.cpp
         Lexer.h
         Token.h
         Parser.cpp
         Parser.h)
+
+
+add_test(NAME LexerTest COMMAND lexer_test)
