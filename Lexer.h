@@ -6,58 +6,68 @@
 #define COMPILER_LEXER_H
 
 #include <stdexcept>
-#include <unordered_map>
 #include <ios>
 #include <cctype>
 #include <cstdio>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <istream>
 #include <memory>
+#include <deque>
 #include "Token.h"
-#include "boost/type_index.hpp"
 
-
+// Used to check that input stream is derived from std::istream
 template<typename T>
-concept InputStream = std::is_base_of_v<std::istream, T>;
+concept InputStream = std::is_base_of_v<std::istream, std::remove_cvref_t<T>>;
 
+// Used to check that we can move the input stream into an unique_ptr
 template<typename T>
-concept InputStreamPtr = InputStream<typename T::element_type>;
+concept InputStreamRef = InputStream<T> && std::movable<T>;
+
+// Used to check that the argument is a unique_ptr holding an allowed input stream
+template<typename T>
+concept InputStreamPtr = std::is_same_v<T, std::unique_ptr<typename T::element_type>>
+        && InputStream<typename T::element_type>
+        && std::constructible_from<std::unique_ptr<std::istream>, std::add_rvalue_reference_t<T>>;
 
 class Lexer {
-    std::unique_ptr<std::istream> source_ptr;
-    std::istream &source;
+public:
+    using TokenAndPos = std::pair<Token, std::istream::pos_type>;
+private:
+    std::unique_ptr<std::istream> source;
+    std::istream::pos_type lastTokenPos = 0;
+    std::deque<TokenAndPos> tokens;
 
 public:
     Lexer() = delete;
 
     template<InputStreamPtr T>
-    explicit Lexer(T &&source) : source_ptr(std::forward<T>(source)), source(*this->source_ptr) {
+    explicit Lexer(T &&source) : source(std::forward<T>(source)) {
         if (!this->source) {
+            throw std::invalid_argument("Expected a non null pointer");
+        }
+        if(!*this->source) {
             throw std::invalid_argument("Expected a good stream");
         }
     }
 
-    template<InputStream T>
+    template<InputStreamRef T>
     explicit Lexer(T &&source) : Lexer(std::make_unique<T>(std::forward<T>(source))) {}
 
     [[nodiscard]] Token getNextToken();
 
+    [[nodiscard]] Token lookAhead(std::int_least32_t);
+
+    std::pair<unsigned int, unsigned int> getErrorPosition();
+
 private:
+    [[nodiscard]] TokenAndPos parseNextToken();
+
     Token parseDigit();
 
     Token parseAlpha();
 
     Token parsePunct();
-
-    std::pair<unsigned int, unsigned int> getErrorPosition();
-
-    struct InternalData {
-        const static std::unordered_map<std::string, Keyword> keywords;
-        const static std::unordered_map<std::string, Operator> operators;
-        const static std::unordered_map<std::string, Punctuation> punctuations;
-    };
 };
 
 class SyntaxErrorException : public std::runtime_error {

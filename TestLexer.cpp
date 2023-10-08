@@ -8,12 +8,13 @@
 #include <sstream>
 
 BOOST_AUTO_TEST_CASE(test_1) {
-    std::istringstream ss("let a i32 = 500");
-    Lexer lexer(std::make_unique<std::istringstream>(std::move(ss)));
+    std::istringstream ss("a: i32 = 500");
+    auto ptr = std::make_unique<std::istringstream>(std::move(ss));
+    Lexer lexer(std::move(ptr));
 
-    BOOST_CHECK(lexer.getNextToken() == Token(Keyword::Let));
     BOOST_CHECK(lexer.getNextToken() == Token(Identifier("a")));
-    BOOST_CHECK(lexer.getNextToken() == Token(Keyword::i32));
+    BOOST_CHECK(lexer.getNextToken() == Token(Punctuation::Colon));
+    BOOST_CHECK(lexer.getNextToken() == Token(Type::i32));
     BOOST_CHECK(lexer.getNextToken() == Token(Operator::Assignment));
     BOOST_CHECK(lexer.getNextToken() == Token(IntegerLiteral(500)));
     BOOST_CHECK(lexer.getNextToken() == Token(EndToken()));
@@ -32,4 +33,9 @@ BOOST_AUTO_TEST_CASE(test_2) {
     BOOST_CHECK(lexer.getNextToken() == Token(Punctuation::OpenBrace));
     BOOST_CHECK(lexer.getNextToken() == Token(Punctuation::CloseBrace));
     BOOST_CHECK(lexer.getNextToken() == Token(EndToken()));
+}
+
+BOOST_AUTO_TEST_CASE(test_3) {
+        BOOST_CHECK_THROW(Lexer(std::unique_ptr<std::istream>{}), std::invalid_argument);
+        Lexer lex(std::ifstream{});
 }

@@ -16,7 +16,9 @@ add_executable(compiler main.cpp
         Token.h
         Parser.cpp
         Parser.h
-        Lexer.cpp)
+        Lexer.cpp
+        ASTNode.cpp
+        ASTNode.h)
 
 
 add_test(NAME LexerTest COMMAND lexer_test)

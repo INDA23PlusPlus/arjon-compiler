@@ -22,17 +22,19 @@ enum class Punctuation {
     OpenBrace,      // '{'
     CloseBrace,     // '}'
 
+    // End of statement
+    NewLine,        // '\n'
+
+    Colon,          // ':'
+    Comma,          // ','
+
     /* Might implement in the future
     // Brackets
     OpenBracket,    // '['
     CloseBracket,   // ']'
 
-    Comma,          // ','
     Dot,            // '.'
     Semicolon,      // ';'
-    Colon,          // ':'
-
-    Arrow,          // '->'
     DoubleColon,    // '::'
     Ellipsis,       // '...'
     */
@@ -70,6 +72,10 @@ enum class Operator {
     LogicalOr,      // '||'
     LogicalNot,     // '!'
 
+    // Other operators
+    RightArrow,     // '->'
+    LeftArrow,      // '<-'
+
     /* Might implement in the future
     // Bitwise operators
     BitwiseAnd,     // '&'
@@ -91,9 +97,10 @@ enum class Keyword {
     Return,
     While,
     If,
-    Main,
-    Let,
     Fn,
+};
+
+enum class Type {
     i32,
     i64,
     u32,
@@ -109,7 +116,8 @@ using Token = std::variant<
         FloatLiteral,       // For float literals
         Operator,           // For operators
         Punctuation,        // For punctuation (see enum for reference)
-        Keyword             // For keywords
+        Keyword,            // For keywords
+        Type                // For types
 >;
 
 #endif //COMPILER_TOKEN_H
