@@ -23,7 +23,7 @@ AST::FunctionDeclarationNodePtr Parser::parse_function_declaration() {
 
     auto function_type = parse_function_type();
 
-    expect_current_token(Operator::Equal, "Expected assignment operator after function declaration");
+    expect_current_token(Operator::Assignment, "Expected assignment operator after function declaration");
 
     currentToken = lexer.getNextToken();
 
@@ -36,6 +36,11 @@ AST::FunctionDeclarationNodePtr Parser::parse_function_declaration() {
 AST::FunctionType Parser::parse_function_type() {
     std::vector<Type> parameterTypes;
     std::optional<Type> returnType;
+
+    // If no type declaration
+    if(is_current_token(Operator::Assignment)) {
+        return {std::move(parameterTypes), returnType};
+    }
 
     expect_current_token(Punctuation::OpenParen, "Expected opening parentheses for function declaration");
 
@@ -54,7 +59,7 @@ AST::FunctionType Parser::parse_function_type() {
     {
         auto error_msg = "Expected either assignment operator or a '->' operator followed by the return type";
         auto token = get_expected_or_throw<Operator>(error_msg);
-        if(token != Operator::Equal && token != Operator::RightArrow)
+        if(token != Operator::Assignment && token != Operator::RightArrow)
             throw_syntax_error(error_msg);
         if(token == Operator::RightArrow) {
             returnType = get_expected_or_throw<Type>("Expected a return type");
@@ -141,6 +146,17 @@ AST::NodePtr Parser::parse_statement() {
         if(std::holds_alternative<Type>(lexer.lookAhead(2))) {
             // Variable declaration
             return parse_variable_declaration();
+        } else if(std::holds_alternative<Operator>(lexer.lookAhead(2))
+                && std::get<Operator>(lexer.lookAhead(2)) == Operator::Assignment) {
+            // Declaration without type
+            if(std::holds_alternative<Keyword>(lexer.lookAhead(3))
+                    && std::get<Keyword>(lexer.lookAhead(3)) == Keyword::Fn) {
+                // Function declaration
+                return parse_function_declaration();
+            } else {
+                // Variable declaration
+                return parse_variable_declaration();
+            }
         } else {
             // Function declaration
             return parse_function_declaration();
@@ -154,9 +170,14 @@ AST::NodePtr Parser::parse_statement() {
 AST::VariableDeclarationNodePtr Parser::parse_variable_declaration() {
     auto name = std::move(check_expected_or_throw<Identifier>("Expected variable name for variable declaration"));
     expect_next_token(Punctuation::Colon, "Expected a colon before variable type");
-    auto type = get_expected_or_throw<Type>("Expected a variable type");
+    consume_token();
+    std::optional<Type> type;
+    if(std::holds_alternative<Type>(currentToken))
+    {
+        type = std::get<Type>(currentToken);
+        consume_token();
+    }
     expect_next_token(Operator::Assignment, "Expected an assignment operator after variable declaration");
-
     consume_token();
     AST::NodePtr block;
     if(is_current_token(Punctuation::OpenBrace)) {

@@ -16,7 +16,7 @@ namespace AST {
     using NodePtr = std::unique_ptr<Node>;
     struct Variable {
         Identifier name;
-        Type type;
+        std::optional<Type> type;
     };
     struct Parameter {
         Identifier name;
