@@ -26,19 +26,29 @@ public:
 private:
     AST::FunctionNodePtr parse_function();
 
-    AST::FunctionDeclarationNodePtr parse_function_declaration();
+    AST::ParameterList parse_parameter_list();
 
-    AST::VariableDeclarationNodePtr parse_variable_declaration();
+    AST::DeclarationNodePtr parse_declaration();
+
+    std::pair<std::vector<Type>, std::optional<Type>> parse_declaration_type();
 
     AST::NodePtr parse_expression();
-
-    AST::FunctionType parse_function_type();
 
     AST::BlockNodePtr parse_block();
 
     AST::ExpressionBlockNodePtr parse_expression_block();
 
     AST::NodePtr parse_statement();
+
+    AST::NodePtr parse_addition_subtraction();
+
+    AST::NodePtr parse_function_call_or_literal();
+
+    AST::NodePtr parse_multiplication_division();
+
+    AST::FunctionCallPtr parse_function_call(AST::NodePtr);
+
+    AST::NodePtr parse_if_statement();
 
     template<typename T>
     void throw_syntax_error(T &&error_message) {
@@ -48,7 +58,7 @@ private:
 
     template<typename T, typename U>
     T &check_expected_or_throw(U &&error_message) {
-        if(!std::holds_alternative<T>(currentToken)) {
+        if (!std::holds_alternative<T>(currentToken)) {
             throw_syntax_error(error_message);
         }
         return std::get<T>(currentToken);
@@ -63,7 +73,7 @@ private:
     template<typename T, typename U>
     auto &expect_next_token(const T &expectedToken, U &&error_message) {
         auto token = get_expected_or_throw<T>(std::forward<U>(error_message));
-        if(token != expectedToken)
+        if (token != expectedToken)
             throw_syntax_error(std::forward<U>(error_message));
         return *this;
     }
@@ -71,7 +81,7 @@ private:
     template<typename T, typename U>
     auto &expect_current_token(const T &expectedToken, U &&error_message) {
         auto token = check_expected_or_throw<T>(std::forward<U>(error_message));
-        if(token != expectedToken)
+        if (token != expectedToken)
             throw_syntax_error(std::forward<U>(error_message));
         return *this;
     }

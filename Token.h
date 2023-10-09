@@ -96,7 +96,10 @@ enum class Operator {
 enum class Keyword {
     Return,
     While,
+    Break,
+    Continue,
     If,
+    Else,
     Fn,
 };
 

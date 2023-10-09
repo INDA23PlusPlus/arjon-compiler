@@ -22,7 +22,7 @@ sum: i32 = fn(a: i32, b: i32) -> i32 {
     return a + b
 }(10, 15)
 ```
-But you will have to supply your own types for the parameters and return value.
+But you will have to supply your own types for the arguments and return value.
 
 It is also possible to evaluate blocks as expressions using the `<-` operator:
 ```

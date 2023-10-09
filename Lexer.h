@@ -20,15 +20,15 @@
 template<typename T>
 concept InputStream = std::is_base_of_v<std::istream, std::remove_cvref_t<T>>;
 
-// Used to check that we can move the input stream into an unique_ptr
+// Used to check that we can move the input stream into a unique_ptr
 template<typename T>
 concept InputStreamRef = InputStream<T> && std::movable<T>;
 
 // Used to check that the argument is a unique_ptr holding an allowed input stream
 template<typename T>
 concept InputStreamPtr = std::is_same_v<T, std::unique_ptr<typename T::element_type>>
-        && InputStream<typename T::element_type>
-        && std::constructible_from<std::unique_ptr<std::istream>, std::add_rvalue_reference_t<T>>;
+                         && InputStream<typename T::element_type>
+                         && std::constructible_from<std::unique_ptr<std::istream>, std::add_rvalue_reference_t<T>>;
 
 class Lexer {
 public:
@@ -46,7 +46,7 @@ public:
         if (!this->source) {
             throw std::invalid_argument("Expected a non null pointer");
         }
-        if(!*this->source) {
+        if (!*this->source) {
             throw std::invalid_argument("Expected a good stream");
         }
     }

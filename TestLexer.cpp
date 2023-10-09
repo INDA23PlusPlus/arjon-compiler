@@ -36,6 +36,6 @@ BOOST_AUTO_TEST_CASE(test_2) {
 }
 
 BOOST_AUTO_TEST_CASE(test_3) {
-        BOOST_CHECK_THROW(Lexer(std::unique_ptr<std::istream>{}), std::invalid_argument);
-        Lexer lex(std::ifstream{});
+    BOOST_CHECK_THROW(Lexer(std::unique_ptr<std::istream>{}), std::invalid_argument);
+    Lexer lex(std::ifstream{});
 }

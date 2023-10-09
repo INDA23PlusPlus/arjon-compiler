@@ -12,10 +12,13 @@ struct InternalData {
 };
 
 const std::unordered_map<std::string, Keyword> InternalData::keywords{
-        {"return", Keyword::Return},
-        {"fn",     Keyword::Fn},
-        {"while",  Keyword::While},
-        {"if",     Keyword::If},
+        {"return",   Keyword::Return},
+        {"fn",       Keyword::Fn},
+        {"while",    Keyword::While},
+        {"break",    Keyword::Break},
+        {"continue", Keyword::Continue},
+        {"if",       Keyword::If},
+        {"else",     Keyword::Else},
 };
 
 const std::unordered_map<std::string, Type> InternalData::types{
@@ -120,8 +123,9 @@ Lexer::TokenAndPos Lexer::parseNextToken() {
 }
 
 Token Lexer::lookAhead(std::int_least32_t x) {
-    if (x <= 0) throw std::invalid_argument("Expected to look ahead more than 0 tokens, you asked to look ahead "
-    + std::to_string(x) + " elements");
+    if (x <= 0)
+        throw std::invalid_argument("Expected to look ahead more than 0 tokens, you asked to look ahead "
+                                    + std::to_string(x) + " elements");
     while (x <= tokens.size()) {
         tokens.emplace_back(std::move(parseNextToken()));
     }
