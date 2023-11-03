@@ -10,11 +10,22 @@
 #include <utility>
 #include <fstream>
 #include <vector>
+#include <sstream>
+#include <unordered_set>
+#include <unordered_map>
 
 class Parser {
     Lexer lexer;
     Token currentToken;
-    std::vector<AST::NodePtr> statements;
+    std::vector<AST::FunctionNodePtr> functions;
+
+    std::unordered_map<Identifier, std::size_t> decl_funcs{
+            {Identifier("print"), 1},
+    };
+    std::unordered_set<Identifier> decl_vars;
+
+
+
 public:
     Parser() = delete;
 
@@ -23,22 +34,17 @@ public:
 
     Parser &parse_program();
 
+    void transpile(std::ostream&);
 private:
     AST::FunctionNodePtr parse_function();
 
-    AST::ParameterList parse_parameter_list();
+    std::vector<Identifier> parse_parameter_list();
 
     AST::DeclarationNodePtr parse_declaration();
 
-    std::pair<std::vector<Type>, std::optional<Type>> parse_declaration_type();
-
     AST::NodePtr parse_expression();
 
-    AST::BlockNodePtr parse_block();
-
-    AST::ExpressionBlockNodePtr parse_expression_block();
-
-    AST::NodePtr parse_statement();
+    AST::NodePtr parse_statement(bool = true);
 
     AST::NodePtr parse_addition_subtraction();
 
@@ -46,9 +52,20 @@ private:
 
     AST::NodePtr parse_multiplication_division();
 
-    AST::FunctionCallPtr parse_function_call(AST::NodePtr);
+    AST::FunctionCallPtr parse_function_call(AST::IdentifierNodePtr);
 
     AST::NodePtr parse_if_statement();
+
+    AST::ReturnNodePtr parse_return_statement();
+
+    AST::NodePtr parse_or();
+
+    AST::NodePtr parse_and();
+
+    AST::NodePtr parse_equality();
+
+    AST::NodePtr parse_relational();
+
 
     template<typename T>
     void throw_syntax_error(T &&error_message) {

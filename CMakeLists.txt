@@ -3,6 +3,10 @@ project(compiler)
 
 set(CMAKE_CXX_STANDARD 23)
 
+add_compile_options("-O3")
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
+set(CMAKE_UNITY_BUILD TRUE)
+
 find_package(Boost REQUIRED COMPONENTS unit_test_framework)
 
 include_directories(${Boost_INCLUDE_DIRS})
@@ -18,7 +22,8 @@ add_executable(compiler main.cpp
         Parser.h
         Lexer.cpp
         ASTNode.cpp
-        ASTNode.h)
+        ASTNode.h
+)
 
 
 add_test(NAME LexerTest COMMAND lexer_test)

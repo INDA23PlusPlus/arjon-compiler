@@ -10,7 +10,6 @@
 
 using EndToken = std::monostate;
 using IntegerLiteral = unsigned long long int;
-using FloatLiteral = long double;
 using Identifier = std::string;
 
 enum class Punctuation {
@@ -23,18 +22,20 @@ enum class Punctuation {
     CloseBrace,     // '}'
 
     // End of statement
-    NewLine,        // '\n'
-
-    Colon,          // ':'
+    Semicolon,      // ';'
     Comma,          // ','
 
     /* Might implement in the future
+    // End of statement
+    NewLine,        // '\n'
+
+    Colon,          // ':'
+
     // Brackets
     OpenBracket,    // '['
     CloseBracket,   // ']'
 
     Dot,            // '.'
-    Semicolon,      // ';'
     DoubleColon,    // '::'
     Ellipsis,       // '...'
     */
@@ -72,11 +73,11 @@ enum class Operator {
     LogicalOr,      // '||'
     LogicalNot,     // '!'
 
+    /* Might implement in the future
     // Other operators
     RightArrow,     // '->'
     LeftArrow,      // '<-'
 
-    /* Might implement in the future
     // Bitwise operators
     BitwiseAnd,     // '&'
     BitwiseOr,      // '|'
@@ -95,32 +96,19 @@ enum class Operator {
 
 enum class Keyword {
     Return,
-    While,
-    Break,
-    Continue,
     If,
     Else,
     Fn,
-};
-
-enum class Type {
-    i32,
-    i64,
-    u32,
-    u64,
-    f32,
-    f64,
+    Let,
 };
 
 using Token = std::variant<
         EndToken,           // Signals end of tokens (default)
         Identifier,         // For identifiers
         IntegerLiteral,     // For integer literals
-        FloatLiteral,       // For float literals
         Operator,           // For operators
         Punctuation,        // For punctuation (see enum for reference)
-        Keyword,            // For keywords
-        Type                // For types
+        Keyword             // For keywords
 >;
 
 #endif //COMPILER_TOKEN_H

@@ -10,128 +10,90 @@
 #include <vector>
 #include <optional>
 #include "Token.h"
+#include <ostream>
 
 namespace AST {
     struct Node;
 
     using NodePtr = std::unique_ptr<Node>;
-    struct Variable {
-        Identifier name;
-        std::optional<Type> type;
-    };
-    struct Parameter {
-        Identifier name;
-        std::optional<Type> type;
-    };
-    using ParameterList = std::vector<Parameter>;
 
     struct Node {
         virtual ~Node() = default;
+        virtual void transpile(std::ostream &) = 0;
     };
 
     struct IntegerLiteralNode : public Node {
         IntegerLiteral value;
 
         explicit IntegerLiteralNode(IntegerLiteral value) : value(value) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using IntegerLiteralNodePtr = std::unique_ptr<IntegerLiteralNode>;
 
-    struct FloatLiteralNode : public Node {
-        FloatLiteral value;
-
-        explicit FloatLiteralNode(FloatLiteral value) : value(value) {}
-    };
-
-    using FloatLiteralNodePtr = std::unique_ptr<FloatLiteralNode>;
-
     struct IdentifierNode : public Node {
-        Identifier name;
+        Identifier identifier;
 
-        explicit IdentifierNode(Identifier name) : name(std::move(name)) {}
+        explicit IdentifierNode(Identifier identifier) : identifier(std::move(identifier)) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using IdentifierNodePtr = std::unique_ptr<IdentifierNode>;
+
 
     struct BinaryOpNode : public Node {
         Operator op;
         NodePtr left, right;
 
-        BinaryOpNode(Operator op, NodePtr left, NodePtr right) :
-                op(op), left(std::move(left)), right(std::move(right)) {}
+        BinaryOpNode(Operator op, NodePtr left, NodePtr right):
+        op(op), left(std::move(left)), right(std::move(right)) {}
+
+
+        void transpile(std::ostream &out) override;
+
     };
 
     using BinaryOpNodePtr = std::unique_ptr<BinaryOpNode>;
 
-    struct BlockNode : public Node {
+    struct FunctionNode : public Node {
+        Identifier name;
+        std::vector<Identifier> parameters;
         std::vector<NodePtr> statements;
 
-        void addStatement(NodePtr statement) {
-            statements.emplace_back(std::move(statement));
-        }
-    };
+        FunctionNode(Identifier name, std::vector<Identifier> parameters, std::vector<NodePtr> statements) :
+        name(std::move(name)), parameters(std::move(parameters)), statements(std::move(statements)) {}
 
-    using BlockNodePtr = std::unique_ptr<BlockNode>;
-
-    struct ExpressionBlockNode : public Node {
-        BlockNodePtr block;
-    };
-    using ExpressionBlockNodePtr = std::unique_ptr<ExpressionBlockNode>;
-
-    struct FunctionNode : public Node {
-        ParameterList parameters;
-        std::optional<Type> returnType;
-        BlockNodePtr block;
-
-        FunctionNode(ParameterList parameters, std::optional<Type> returnType, BlockNodePtr block) :
-                parameters(std::move(parameters)), returnType(returnType), block(std::move(block)) {}
+        void transpile(std::ostream &out) override;
     };
 
     using FunctionNodePtr = std::unique_ptr<FunctionNode>;
 
     struct IfNode : public Node {
         NodePtr expression;
-        // This block should be of type BlockExpression since the user can return from it using '<-'
-        // The '<-' operator will be emulated in C++ using throw BlockReturn(val);
-        // And the BlockExpression should therefore be a lambda with a try catch block inside it, like:
-        //  [&]() {
-        //      try {
-        //          ...
-        //      } catch (const BlockReturn& e) {
-        //          return e.val;
-        //      }
-        //  }();
-        //
-        BlockNodePtr block;
+        NodePtr statement;
 
-        BlockNodePtr elseBlock;
+        // nullptr if no else block
+        NodePtr elseStatement;
 
-        IfNode(NodePtr expression, BlockNodePtr block, BlockNodePtr elseBlock):
-        expression(std::move(expression)), block(std::move(block)), elseBlock(std::move(elseBlock)) {}
+        IfNode(NodePtr expression, NodePtr statement, NodePtr elseStatement):
+        expression(std::move(expression)), statement(std::move(statement)), elseStatement(std::move(elseStatement)) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using IfNodePtr = std::unique_ptr<IfNode>;
 
-    struct WhileNode : public Node {
-        NodePtr expression;
-        BlockNodePtr block;
-
-        WhileNode(NodePtr expression, BlockNodePtr block) : expression(std::move(expression)), block(std::move(block)) {}
-    };
-
-    using WhileNodePtr = std::unique_ptr<WhileNode>;
-
     struct DeclarationNode : public Node {
         Identifier name;
-        // Empty for variable declarations, can also be empty for functions with deduced parameter types
-        std::vector<Type> parameterTypes;
-        // The variable type for variables, otherwise return type, can be empty
-        std::optional<Type> returnType;
         // The expression the declaration equals
         NodePtr expression;
 
-        DeclarationNode(Identifier name, std::vector<Type> parameterTypes, std::optional<Type> returnType, NodePtr expression):
-                name(std::move(name)), parameterTypes(std::move(parameterTypes)), returnType(returnType), expression(std::move(expression)) {}
+        DeclarationNode(Identifier name, NodePtr expression):
+        name(std::move(name)), expression(std::move(expression)) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using DeclarationNodePtr = std::unique_ptr<DeclarationNode>;
@@ -140,27 +102,23 @@ namespace AST {
         NodePtr expression;
 
         explicit ReturnNode(NodePtr expression) : expression(std::move(expression)) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using ReturnNodePtr = std::unique_ptr<ReturnNode>;
 
-    struct BlockReturnNode : public Node {
-        NodePtr expression;
-
-        explicit BlockReturnNode(NodePtr expression): expression(std::move(expression)) {}
-    };
-    using BlockReturnNodePtr = std::unique_ptr<BlockReturnNode>;
-
     struct FunctionCall : public Node {
-        NodePtr function;
+        Identifier identifier;
         std::vector<NodePtr> arguments;
 
-        FunctionCall(NodePtr function, std::vector<NodePtr> arguments):
-        function(std::move(function)), arguments(std::move(arguments)) {}
+        FunctionCall(Identifier identifier, std::vector<NodePtr> arguments):
+        identifier(std::move(identifier)), arguments(std::move(arguments)) {}
+
+        void transpile(std::ostream &out) override;
     };
 
     using FunctionCallPtr = std::unique_ptr<FunctionCall>;
-
 }
 
 

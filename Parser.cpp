@@ -5,150 +5,123 @@
 #include "Parser.h"
 
 Parser &Parser::parse_program() {
-    while (!holds_alternative<EndToken>(currentToken = lexer.getNextToken())) {
-        statements.emplace_back(std::move(parse_statement()));
+    consume_token();
+    while (!holds_alternative<EndToken>(currentToken)) {
+        functions.emplace_back(std::move(parse_function()));
     }
+    if(!decl_funcs.contains("main"))
+        throw_syntax_error("There is no main declared");
+    if(decl_funcs["main"] != 0)
+        throw_syntax_error("Main shouldn't have any arguments.");
+
     return *this;
 }
 
 
-std::pair<std::vector<Type>, std::optional<Type>> Parser::parse_declaration_type() {
-    std::vector<Type> parameterTypes;
-    if (is_current_token(Punctuation::OpenParen)) {
-        while (std::holds_alternative<Type>(currentToken = lexer.getNextToken())) {
-            parameterTypes.emplace_back(std::get<Type>(currentToken));
-            auto error_msg = "Expected closing parenthesis or comma after function type";
-            auto commaOrClosingParen = get_expected_or_throw<Punctuation>(error_msg);
-            if (commaOrClosingParen == Punctuation::CloseParen)
-                break;
-            if (commaOrClosingParen != Punctuation::Comma)
-                throw_syntax_error(error_msg);
-        }
-        expect_current_token(Punctuation::CloseParen, "Expected closing parenthesis after function types");
-        consume_token();
-        if (is_current_token(Operator::RightArrow))
-            consume_token();
-    }
-
-    std::optional<Type> returnType;
-    if (std::holds_alternative<Type>(currentToken)) {
-        returnType = std::get<Type>(currentToken);
-        consume_token();
-    }
-
-    return std::make_pair(std::move(parameterTypes), returnType);
-}
-
 AST::DeclarationNodePtr Parser::parse_declaration() {
-    Identifier name = std::move(check_expected_or_throw<Identifier>("Expected function name"));
+    expect_current_token(Keyword::Let, "Expected 'Let' keyword to declare variable");
 
-    expect_next_token(Punctuation::Colon, "Expected colon separating identifier from type");
+    Identifier name = std::move(get_expected_or_throw<Identifier>("Expected function name"));
 
-    currentToken = lexer.getNextToken();
+    if(decl_funcs.contains(name) || decl_vars.contains(name))
+        throw_syntax_error(name + " is already declared");
+    decl_vars.insert(name);
 
-    auto declaration_type = parse_declaration_type();
+    expect_next_token(Operator::Assignment, "Expected assignment operator after variable declaration");
 
-    expect_current_token(Operator::Assignment, "Expected assignment operator after function declaration");
-
-    currentToken = lexer.getNextToken();
+    consume_token();
 
     auto expression = parse_expression();
 
-    return std::make_unique<AST::DeclarationNode>
-            (std::move(name), std::move(declaration_type.first), std::move(declaration_type.second),
-             std::move(expression));
+    expect_current_token(Punctuation::Semicolon, "Expected semicolon after variable declaration");
+    return std::make_unique<AST::DeclarationNode>(std::move(name), std::move(expression));
 }
 
 AST::FunctionNodePtr Parser::parse_function() {
     expect_current_token(Keyword::Fn, "Expected the fn keyword to declare the function");
-    consume_token();
 
+    Identifier name = std::move(get_expected_or_throw<Identifier>("Expected function name"));
+
+    if(decl_funcs.contains(name))
+        throw_syntax_error(name + " is already declared");
+
+    consume_token();
 
     auto parameterList = parse_parameter_list();
 
+    decl_funcs[name] = parameterList.size();
+
+    decl_vars.clear();
+
+    for(const auto &parameter : parameterList) {
+        if(decl_vars.contains(parameter))
+            throw_syntax_error(parameter + " is already declared.");
+        decl_vars.insert(parameter);
+    }
+
     expect_current_token(Punctuation::CloseParen, "Expected closing parenthesis");
 
+    expect_next_token(Punctuation::OpenBrace, "Expected opening brace after function declaration");
+
+    std::vector<AST::NodePtr> statements;
     consume_token();
-    std::optional<Type> returnType;
-    if (is_current_token(Operator::RightArrow)) {
-        returnType = get_expected_or_throw<Type>("Expected a return type");
-        consume_token();
-    }
-
-    AST::BlockNodePtr functionBody = parse_block();
-    return std::make_unique<AST::FunctionNode>(std::move(parameterList), returnType, std::move(functionBody));
-}
-
-AST::ExpressionBlockNodePtr Parser::parse_expression_block() {
-    AST::ExpressionBlockNode expressionBlockNode;
-    expressionBlockNode.block = parse_block();
-    return std::make_unique<AST::ExpressionBlockNode>(std::move(expressionBlockNode));
-}
-
-AST::BlockNodePtr Parser::parse_block() {
-    expect_current_token(Punctuation::OpenBrace, "Expected opening brace before block.");
-    consume_token();
-
-    AST::BlockNode block;
-
     while (!is_current_token(Punctuation::CloseBrace)) {
-        block.addStatement(parse_statement());
+        statements.emplace_back(std::move(parse_statement()));
+        expect_current_token(Punctuation::Semicolon, "Expected semicolon after statement");
+        consume_token();
     }
-    consume_token();
-    return std::make_unique<AST::BlockNode>(std::move(block));
+
+    if(statements.empty() || !dynamic_cast<AST::ReturnNode*>(statements.back().get()))
+        throw_syntax_error(name + " doesn't end with a return statement");
+    consume_token(); // Close brace
+
+    return std::make_unique<AST::FunctionNode>(std::move(name), std::move(parameterList), std::move(statements));
 }
 
-AST::NodePtr Parser::parse_statement() {
-    while (is_current_token(Punctuation::NewLine))
-        consume_token();
+AST::NodePtr Parser::parse_statement(bool declaration_allowed) {
     if (is_current_token(EndToken()))
         return {};
     // Figure out what the statement is through forward-looking method
     // Statement can be function declaration, variable declaration, if statement, while loop, expression
-
+    AST::NodePtr ret;
     if (is_current_token(Keyword::If)) {
-        // Parse if
-    } else if (is_current_token(Keyword::While)) {
-        // Parse while
-    } else if (std::holds_alternative<Identifier>(currentToken)
-               && std::holds_alternative<Punctuation>(lexer.lookAhead(1))
-               && std::get<Punctuation>(lexer.lookAhead(1)) == Punctuation::Colon) {
-        // Declaration
-        return parse_declaration();
+        ret = parse_if_statement();
+    } else if (is_current_token(Keyword::Let)) {
+        if(!declaration_allowed)
+            throw_syntax_error("Declaration is not allowed here");
+        ret = parse_declaration();
+    } else if (is_current_token(Keyword::Return)) {
+        ret = parse_return_statement();
     } else {
-        return parse_expression();
+        ret = parse_expression();
     }
-    std::unreachable();
+    expect_current_token(Punctuation::Semicolon, "Expected semicolon after statement");
+    return ret;
 }
 
-AST::ParameterList Parser::parse_parameter_list() {
-    AST::ParameterList parameterList;
+std::vector<Identifier> Parser::parse_parameter_list() {
+    std::vector<Identifier> parameterList;
 
     expect_current_token(Punctuation::OpenParen, "Expected opening parenthesis");
     currentToken = lexer.getNextToken();
     while (std::holds_alternative<Identifier>(currentToken)) {
         auto name = std::move(std::get<Identifier>(currentToken));
-        std::optional<Type> type;
+        parameterList.emplace_back(std::move(name));
 
-        auto error_msg = "Expected comma, colon or closing parenthesis after variable declaration";
-        auto punctToken = get_expected_or_throw<Punctuation>(error_msg);
+        consume_token(); // identifier
 
+        if(is_current_token(Punctuation::CloseParen))
+            break;
 
-        if (punctToken == Punctuation::Comma) {
-            type = get_expected_or_throw<Type>("Expected type");
-            punctToken = get_expected_or_throw<Punctuation>(error_msg);
-        }
-        if (punctToken == Punctuation::Colon) {
-            currentToken = lexer.getNextToken();
-        }
-        parameterList.emplace_back(std::move(name), type);
+        expect_current_token(Punctuation::Comma, "Expected comma, colon or closing parenthesis after variable declaration");
+        consume_token();
     }
-    consume_token();
+    expect_current_token(Punctuation::CloseParen, "Expected closing parenthesis.");
     return parameterList;
 }
 
 AST::NodePtr Parser::parse_expression() {
-    return parse_addition_subtraction();
+    return parse_or();
 }
 
 // Highest precedence: multiplication and division
@@ -186,11 +159,6 @@ AST::NodePtr Parser::parse_function_call_or_literal() {
         consume_token();
         return std::make_unique<AST::IntegerLiteralNode>(literal);
     }
-    else if (std::holds_alternative<FloatLiteral>(currentToken)) {
-        auto literal = std::get<FloatLiteral>(currentToken);
-        consume_token();
-        return std::make_unique<AST::FloatLiteralNode>(literal);
-    }
     else if (std::holds_alternative<Identifier>(currentToken)) {
         auto id_node = std::make_unique<AST::IdentifierNode>(
                 std::move(
@@ -198,26 +166,16 @@ AST::NodePtr Parser::parse_function_call_or_literal() {
                 )
         );
         consume_token();
-        // Check if it's a function call
         if (is_current_token(Punctuation::OpenParen)) {
             return parse_function_call(std::move(id_node));
         } else {
+            if(!decl_vars.contains(id_node->identifier))
+                throw_syntax_error(id_node->identifier + " is not declared");
             return id_node;
-        }
-    }
-    else if (is_current_token(Keyword::Fn)) {
-        auto function = parse_function();
-        if (is_current_token(Punctuation::OpenParen)) {
-            return parse_function_call(std::move(function));
-        } else {
-            return function;
         }
     }
     else if (is_current_token(Keyword::If)) {
         return parse_if_statement();
-    }
-    else if (is_current_token(Punctuation::OpenBrace)) {
-        return parse_block();
     }
     else if (is_current_token(Punctuation::OpenParen)) {
         consume_token();
@@ -229,36 +187,106 @@ AST::NodePtr Parser::parse_function_call_or_literal() {
 
         return subExpression;
     }
-
-    throw_syntax_error("Expected literal, function call, or variable reference.");
+    throw_syntax_error("Expected literal, function call, or variable reference");
+    return {};
 }
 
-AST::FunctionCallPtr Parser::parse_function_call(AST::NodePtr function) {
-    consume_token();  // Consume the opening parenthesis
+AST::FunctionCallPtr Parser::parse_function_call(AST::IdentifierNodePtr identifier) {
+    if(!decl_funcs.contains(identifier->identifier))
+        throw_syntax_error(identifier->identifier + " is not declared");
+    consume_token();
 
     std::vector<AST::NodePtr> arguments;
     while (!is_current_token(Punctuation::CloseParen)) {
-        arguments.push_back(parse_expression());
+        arguments.emplace_back(std::move(parse_expression()));
         if (is_current_token(Punctuation::Comma)) {
             consume_token();
         }
     }
 
+    if(decl_funcs[identifier->identifier] != arguments.size())
+        throw_syntax_error("Argument count mismatch");
+
     consume_token();
 
-    return std::make_unique<AST::FunctionCall>(std::move(function), std::move(arguments));
+    return std::make_unique<AST::FunctionCall>(std::move(identifier->identifier), std::move(arguments));
 }
 
 AST::NodePtr Parser::parse_if_statement() {
     expect_current_token(Keyword::If, "Expected if keyword");
     consume_token();
     auto expression = parse_expression();
-    auto block = parse_block();
-    AST::BlockNodePtr elseBlock;
+    auto statement = parse_statement(false);
+    AST::NodePtr elseStatement;
 
     if (is_current_token(Keyword::Else)) {
         consume_token();
-        elseBlock = parse_block();
+        elseStatement = parse_statement(false);
     }
-    return std::make_unique<AST::IfNode>(std::move(expression), std::move(block), std::move(elseBlock));
+    expect_current_token(Punctuation::Semicolon, "Expected semicolon after statement");
+    return std::make_unique<AST::IfNode>(std::move(expression), std::move(statement), std::move(elseStatement));
 }
+
+void Parser::transpile(std::ostream &out) {
+    out << "#include <iostream>\n";
+    out << "int print(int x) {std::cout << x << std::endl; return 0; }\n";
+    for(const auto & function : functions) {
+        function->transpile(out);
+    }
+}
+
+AST::ReturnNodePtr Parser::parse_return_statement() {
+    expect_current_token(Keyword::Return, "Expected return keyword.");
+    consume_token();
+    auto expression = parse_expression();
+    expect_current_token(Punctuation::Semicolon, "Expected semicolon after statement");
+    return std::make_unique<AST::ReturnNode>(std::move(expression));
+}
+
+AST::NodePtr Parser::parse_or() {
+    auto left = parse_and();
+    while (is_current_token(Operator::LogicalOr)) {
+        auto op = std::get<Operator>(currentToken);
+        consume_token();
+        auto right = parse_and();
+        left = std::make_unique<AST::BinaryOpNode>(op, std::move(left), std::move(right));
+    }
+    return left;
+}
+
+AST::NodePtr Parser::parse_and() {
+    auto left = parse_equality();
+    while (is_current_token(Operator::LogicalAnd)) {
+        auto op = std::get<Operator>(currentToken);
+        consume_token();
+        auto right = parse_equality();
+        left = std::make_unique<AST::BinaryOpNode>(op, std::move(left), std::move(right));
+    }
+    return left;
+}
+
+AST::NodePtr Parser::parse_equality() {
+    auto left = parse_relational();
+    while (is_current_token(Operator::Equal) || is_current_token(Operator::NotEqual)) {
+        auto op = std::get<Operator>(currentToken);
+        consume_token();
+        auto right = parse_relational();
+        left = std::make_unique<AST::BinaryOpNode>(op, std::move(left), std::move(right));
+    }
+    return left;
+}
+
+AST::NodePtr Parser::parse_relational() {
+    auto left = parse_addition_subtraction();
+    while (is_current_token(Operator::LessThan)
+           || is_current_token(Operator::LessThanOrEq)
+           || is_current_token(Operator::GreaterThan)
+           || is_current_token(Operator::GreaterThanOrEq)) {
+        auto op = std::get<Operator>(currentToken);
+        consume_token();
+        auto right = parse_addition_subtraction();
+        left = std::make_unique<AST::BinaryOpNode>(op, std::move(left), std::move(right));
+    }
+    return left;
+}
+
